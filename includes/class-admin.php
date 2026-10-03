@@ -362,7 +362,8 @@ class WCP_Admin {
 			return;
 		}
 
-		wp_enqueue_color_picker();
+		wp_enqueue_script( 'wp-color-picker' );
+wp_enqueue_style( 'wp-color-picker' );
 
 		wp_enqueue_script(
 			'wcp-admin',
