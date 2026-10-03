@@ -1,0 +1,128 @@
+/**
+ * Frontend styles for the [counter] shortcode.
+ * Everything is scoped to .wcp-counter so the theme stays untouched.
+ */
+
+.wcp-counter {
+	--wcp-color: #2563eb;
+
+	box-sizing: border-box;
+	display: inline-flex;
+	flex-direction: column;
+	gap: 12px;
+	min-width: 180px;
+	margin: 8px 0;
+	padding: 20px 24px;
+	border: 2px solid var(--wcp-color);
+	border-radius: 14px;
+	background: #fff;
+	box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+	font-family: inherit;
+	color: #0f172a;
+	text-align: left;
+}
+
+.wcp-counter *,
+.wcp-counter *::before,
+.wcp-counter *::after {
+	box-sizing: border-box;
+}
+
+.wcp-counter__title {
+	font-size: 0.8125rem;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: #64748b;
+}
+
+.wcp-counter__row {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+}
+
+.wcp-counter__value {
+	font-size: 2.25rem;
+	font-weight: 700;
+	line-height: 1;
+	color: var(--wcp-color);
+	font-variant-numeric: tabular-nums;
+}
+
+.wcp-counter__value.is-updated {
+	animation: wcp-pop 260ms ease-out;
+}
+
+.wcp-counter__button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 44px;
+	height: 44px;
+	border: 0;
+	border-radius: 50%;
+	background: var(--wcp-color);
+	color: #fff;
+	font-size: 1.6rem;
+	line-height: 1;
+	cursor: pointer;
+	transition: transform 120ms ease, opacity 120ms ease;
+}
+
+.wcp-counter__button:hover {
+	transform: scale(1.08);
+}
+
+.wcp-counter__button:focus-visible {
+	outline: 3px solid rgba(37, 99, 235, 0.45);
+	outline-offset: 2px;
+}
+
+.wcp-counter__button:disabled {
+	opacity: 0.55;
+	cursor: wait;
+	transform: none;
+}
+
+.wcp-counter.is-loading .wcp-counter__value {
+	opacity: 0.6;
+}
+
+.wcp-counter__status {
+	min-height: 1em;
+	font-size: 0.8125rem;
+	color: #b91c1c;
+}
+
+@keyframes wcp-pop {
+	0% {
+		transform: scale(1);
+	}
+	45% {
+		transform: scale(1.18);
+	}
+	100% {
+		transform: scale(1);
+	}
+}
+
+@media (max-width: 480px) {
+	.wcp-counter {
+		display: flex;
+		width: 100%;
+		min-width: 0;
+	}
+
+	.wcp-counter__value {
+		font-size: 1.875rem;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.wcp-counter__button,
+	.wcp-counter__value {
+		transition: none;
+		animation: none;
+	}
+}
