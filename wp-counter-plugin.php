@@ -1,12 +1,12 @@
 <?php
 /**
  * Plugin Name:          WP Counter Plugin
- * Plugin URI:           https://github.com/your-user-name/wp-counter-plugin
+ * Plugin URI:           https://github.com/squallenix/wp-counter-plugin
  * Description:          A lightweight counter with an admin settings page and a [counter] shortcode. Increments over REST/AJAX without page reloads, supports shortcode attributes, custom colours and a one-click reset.
  * Version:              1.0.0
  * Requires at least:    5.8
  * Requires PHP:         7.4
- * Author:               Your Name
+ * Author:               Nizam Uddin
  * License:              GPL-2.0-or-later
  * License URI:          https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:          wp-counter-plugin
