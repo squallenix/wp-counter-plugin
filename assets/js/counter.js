@@ -1,123 +1,165 @@
 /**
  * Frontend behaviour for the [counter] shortcode.
- *
- * One delegated click listener serves any number of counters on the page.
- * The value is updated through the REST endpoint, so no page reload.
  */
-( function () {
-	'use strict';
 
-	if ( 'undefined' === typeof window.wcpData ) {
-		return;
-	}
+(function () {
+  "use strict";
 
-	var config = window.wcpData;
+  if (typeof window.wcpData === "undefined") {
+    return;
+  }
 
-	/**
-	 * Paint the value returned by the server and replay the pop animation.
-	 *
-	 * @param {HTMLElement} wrapper Counter wrapper element.
-	 * @param {Object}      data    Response payload.
-	 * @return {void}
-	 */
-	function showValue( wrapper, data ) {
-		var value = wrapper.querySelector( '.wcp-counter__value' );
+  var config = window.wcpData;
 
-		if ( ! value ) {
-			return;
-		}
+  /**
+   * Show a message under the counter.
+   *
+   * @param {HTMLElement} wrapper Counter wrapper.
+   * @param {string} message Message text.
+   * @param {boolean} isError Whether this is an error.
+   */
+  function showMessage(wrapper, message, isError) {
+    var status = wrapper.querySelector(".wcp-counter__status");
 
-		value.textContent = data.formatted;
-		value.classList.remove( 'is-updated' );
+    if (!status) {
+      return;
+    }
 
-		// Force a reflow so the animation restarts on every click.
-		void value.offsetWidth;
-		value.classList.add( 'is-updated' );
-	}
+    status.textContent = message || "";
 
-	/**
-	 * Show a message in the counter's status line.
-	 *
-	 * @param {HTMLElement} wrapper Counter wrapper element.
-	 * @param {string}      message Message to display.
-	 * @return {void}
-	 */
-	function showMessage( wrapper, message ) {
-		var status = wrapper.querySelector( '.wcp-counter__status' );
+    if (isError) {
+      status.classList.add("is-error");
+    } else {
+      status.classList.remove("is-error");
+    }
+  }
 
-		if ( status ) {
-			status.textContent = message;
-		}
-	}
+  /**
+   * Update the visible counter value.
+   *
+   * @param {HTMLElement} wrapper Counter wrapper.
+   * @param {string} value New formatted value.
+   */
+  function updateValue(wrapper, value) {
+    var element = wrapper.querySelector(".wcp-counter__value");
 
-	/**
-	 * Ask the server to increase the counter.
-	 *
-	 * @param {HTMLElement} button The clicked "+" button.
-	 * @return {void}
-	 */
-	function increment( button ) {
-		var wrapper = button.closest( '.wcp-counter' );
+    if (!element) {
+      return;
+    }
 
-		if ( ! wrapper || button.disabled ) {
-			return;
-		}
+    element.textContent = value;
 
-		var amount = parseInt( button.getAttribute( 'data-wcp-step' ), 10 );
-		if ( isNaN( amount ) || amount < 1 ) {
-			amount = 1;
-		}
+    element.classList.remove("is-updated");
 
-		var finish = function () {
-			button.disabled = false;
-			wrapper.classList.remove( 'is-loading' );
-		};
+    /*
+     * Restart animation.
+     */
+    void element.offsetWidth;
 
-		button.disabled = true;
-		wrapper.classList.add( 'is-loading' );
-		showMessage( wrapper, '' );
+    element.classList.add("is-updated");
+  }
 
-		fetch( config.restUrl + '?amount=' + amount, {
-			method: 'POST',
-			credentials: 'same-origin',
-			headers: {
-				Accept: 'application/json',
-				'X-WP-Nonce': config.nonce
-			}
-		} )
-			.then( function ( response ) {
-				return response.json().then( function ( body ) {
-					if ( ! response.ok ) {
-						throw new Error(
-							body && body.message ? body.message : config.i18n.error
-						);
-					}
+  /**
+   * Send increment request.
+   *
+   * @param {HTMLElement} button Counter button.
+   */
+  function incrementCounter(button) {
+    var wrapper = button.closest(".wcp-counter");
 
-					return body;
-				} );
-			} )
-			.then( function ( data ) {
-				showValue( wrapper, data );
-			} )
-			.catch( function ( error ) {
-				showMessage(
-					wrapper,
-					error && error.message ? error.message : config.i18n.error
-				);
-			} )
-			.then( finish );
-	}
+    if (!wrapper || button.disabled) {
+      return;
+    }
 
-	document.addEventListener( 'click', function ( event ) {
-		var target = event.target;
+    var id = wrapper.getAttribute("data-wcp-id") || "";
 
-		if ( ! target.closest ) {
-			return;
-		}
+    var amount = parseInt(button.getAttribute("data-wcp-step"), 10);
 
-		var button = target.closest( '.wcp-counter__button' );
-		if ( button ) {
-			increment( button );
-		}
-	} );
-} )();
+    var token = button.getAttribute("data-wcp-token") || "";
+
+    if (isNaN(amount) || amount < 1 || !token) {
+      showMessage(wrapper, config.i18n.error, true);
+
+      return;
+    }
+
+    var body = new URLSearchParams();
+
+    body.append("amount", amount);
+
+    body.append("token", token);
+
+    if (id) {
+      body.append("id", id);
+    }
+
+    button.disabled = true;
+
+    wrapper.classList.add("is-loading");
+
+    showMessage(wrapper, "", false);
+
+    fetch(config.restUrl, {
+      method: "POST",
+
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+
+      body: body.toString(),
+    })
+      .then(function (response) {
+        return response
+          .json()
+          .catch(function () {
+            return {};
+          })
+          .then(function (data) {
+            if (!response.ok) {
+              throw new Error(data.message || config.i18n.error);
+            }
+
+            return data;
+          });
+      })
+
+      .then(function (data) {
+        updateValue(wrapper, data.formatted);
+
+        showMessage(
+          wrapper,
+          config.i18n.updated.replace("%s", data.formatted),
+          false,
+        );
+
+        setTimeout(function () {
+          showMessage(wrapper, "", false);
+        }, 3000);
+      })
+
+      .catch(function (error) {
+        showMessage(wrapper, error.message || config.i18n.error, true);
+      })
+
+      .finally(function () {
+        button.disabled = false;
+
+        wrapper.classList.remove("is-loading");
+      });
+  }
+
+  /*
+   * One click listener works for every counter.
+   */
+  document.addEventListener("click", function (event) {
+    if (!event.target.closest) {
+      return;
+    }
+
+    var button = event.target.closest(".wcp-counter__button");
+
+    if (button) {
+      incrementCounter(button);
+    }
+  });
+})();

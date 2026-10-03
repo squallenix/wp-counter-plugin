@@ -7,19 +7,19 @@ to the database and shared by every place the shortcode is used.
 
 ## Features
 
-| Area        | What you get                                                                                                                                                             |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Admin menu  | Settings → **WP Counter** (`add_options_page()` on `admin_menu`)                                                                                                         |
-| Settings    | Settings API: `register_setting()`, `add_settings_section()`, `add_settings_field()`                                                                                     |
-| Fields      | Title, starting value, step, accent colour (wp-color-picker), show/hide button                                                                                           |
-| Validation  | Sanitize callback with admin error messages (empty title, step &lt; 1, bad colour)                                                                                       |
-| Shortcode   | `[counter]` plus `title`, `step`, `color`, `button` attributes                                                                                                           |
-| Frontend    | Markup, responsive `assets/css/counter.css`, `wp_enqueue_scripts`                                                                                                        |
-| Live update | `assets/js/counter.js` posts to a REST endpoint — no reload                                                                                                              |
-| Reset       | Nonce-protected reset button on the settings screen                                                                                                                      |
-| Security    | `ABSPATH` guard, `sanitize_text_field()`, `absint()`, `intval()`, `esc_html()`, `esc_attr()`, `current_user_can( 'manage_options' )`, REST nonce check, light rate limit |
-| Cleanup     | `uninstall.php` deletes both options (including on multisite)                                                                                                            |
-| i18n        | Text domain `wp-counter-plugin`, `__()`, `esc_html__()`                                                                                                                  |
+| Area | What you get |
+|---|---|
+| Admin menu | Settings → **WP Counter** (`add_options_page()` on `admin_menu`) |
+| Settings | Settings API: `register_setting()`, `add_settings_section()`, `add_settings_field()` |
+| Fields | Title, starting value, step, accent colour (wp-color-picker), show/hide button |
+| Validation | Sanitize callback with admin error messages (empty title, step &lt; 1, bad colour) |
+| Shortcode | `[counter]` plus `title`, `step`, `color`, `button` attributes |
+| Frontend | Markup, responsive `assets/css/counter.css`, `wp_enqueue_scripts` |
+| Live update | `assets/js/counter.js` posts to a REST endpoint — no reload |
+| Reset | Nonce-protected reset button on the settings screen |
+| Security | `ABSPATH` guard, `sanitize_text_field()`, `absint()`, `intval()`, `esc_html()`, `esc_attr()`, `current_user_can( 'manage_options' )`, REST nonce check, light rate limit |
+| Cleanup | `uninstall.php` deletes both options (including on multisite) |
+| i18n | Text domain `wp-counter-plugin`, `__()`, `esc_html__()` |
 
 ## Installation
 
@@ -54,18 +54,18 @@ Every attribute is optional and falls back to the settings screen values.
 [counter title="Visitors" step="5" color="#16a34a" button="yes"]
 ```
 
-| Attribute | Default         | Description                                   |
-| --------- | --------------- | --------------------------------------------- |
-| `title`   | settings title  | Heading shown above the number                |
-| `step`    | settings step   | Amount added per click (must be ≥ 1)          |
-| `color`   | settings colour | Accent colour as a hex value, e.g. `#16a34a`  |
-| `button`  | `yes`           | `no` hides the "+" button (read-only display) |
+| Attribute | Default | Description |
+|---|---|---|
+| `title` | settings title | Heading shown above the number |
+| `step` | settings step | Amount added per click (must be ≥ 1) |
+| `color` | settings colour | Accent colour as a hex value, e.g. `#16a34a` |
+| `button` | `yes` | `no` hides the "+" button (read-only display) |
 
 ### REST endpoint
 
-| Method | Route                                            | Purpose                                  |
-| ------ | ------------------------------------------------ | ---------------------------------------- |
-| `GET`  | `/wp-json/wp-counter-plugin/v1/counter`          | Read the current value                   |
+| Method | Route | Purpose |
+|---|---|---|
+| `GET` | `/wp-json/wp-counter-plugin/v1/counter` | Read the current value |
 | `POST` | `/wp-json/wp-counter-plugin/v1/counter?amount=5` | Increase the value (REST nonce required) |
 
 The amount is capped at 100 per request and the endpoint is limited to 30
@@ -98,6 +98,7 @@ stored, no external service is contacted, and both options are deleted by
 
 ## Testing locally
 
+WordPress.com free plans cannot install plugins, so test on a local install
 (LocalWP / XAMPP / Local by Flywheel):
 
 1. Activate the plugin.

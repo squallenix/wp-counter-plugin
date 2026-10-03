@@ -1,43 +1,67 @@
 <?php
 /**
- * Admin settings page (Settings API).
+ * Admin settings page.
  *
  * @package WP_Counter_Plugin
  */
 
-// Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
 /**
- * Registers the "WP Counter" settings screen under Settings → WP Counter.
+ * Handles the plugin admin page.
  */
 class WCP_Admin {
 
-	/** Slug of the settings page. */
+	/**
+	 * Settings page slug.
+	 */
 	const PAGE_SLUG = 'wp-counter-plugin';
 
-	/** Settings API option group. */
+	/**
+	 * Settings group.
+	 */
 	const OPTION_GROUP = 'wcp_counter_group';
 
 	/**
-	 * Hook the admin behaviour.
+	 * Register admin hooks.
 	 */
 	public function __construct() {
-		add_action( 'admin_menu', array( $this, 'add_menu_page' ) );
-		add_action( 'admin_init', array( $this, 'register_settings' ) );
-		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
-		add_action( 'admin_post_wcp_reset_counter', array( $this, 'handle_reset' ) );
-		add_action( 'admin_notices', array( $this, 'render_reset_notice' ) );
+
+		add_action(
+			'admin_menu',
+			array( $this, 'add_menu_page' )
+		);
+
+		add_action(
+			'admin_init',
+			array( $this, 'register_settings' )
+		);
+
+		add_action(
+			'admin_enqueue_scripts',
+			array( $this, 'enqueue_assets' )
+		);
+
+		add_action(
+			'admin_post_wcp_reset_all',
+			array( $this, 'reset_all' )
+		);
+
+		add_action(
+			'admin_post_wcp_reset_single',
+			array( $this, 'reset_single' )
+		);
 	}
 
 	/**
-	 * Add the settings page under the Settings menu.
+	 * Add Settings → WP Counter.
 	 *
 	 * @return void
 	 */
 	public function add_menu_page() {
+
 		add_options_page(
 			__( 'WP Counter', 'wp-counter-plugin' ),
 			__( 'WP Counter', 'wp-counter-plugin' ),
@@ -48,25 +72,29 @@ class WCP_Admin {
 	}
 
 	/**
-	 * Register the option, the section and the fields.
+	 * Register settings.
 	 *
 	 * @return void
 	 */
 	public function register_settings() {
+
 		register_setting(
 			self::OPTION_GROUP,
 			WCP_SETTINGS_OPTION,
 			array(
 				'type'              => 'array',
-				'sanitize_callback' => array( $this, 'sanitize_settings' ),
+				'sanitize_callback' => array(
+					$this,
+					'sanitize_settings',
+				),
 				'default'           => wcp_get_default_settings(),
 			)
 		);
 
 		add_settings_section(
 			'wcp_main_section',
-			__( 'Counter settings', 'wp-counter-plugin' ),
-			array( $this, 'render_section' ),
+			__( 'Counter Settings', 'wp-counter-plugin' ),
+			'__return_false',
 			self::PAGE_SLUG
 		);
 
@@ -80,7 +108,7 @@ class WCP_Admin {
 
 		add_settings_field(
 			'wcp_starting_value',
-			__( 'Starting value', 'wp-counter-plugin' ),
+			__( 'Starting Value', 'wp-counter-plugin' ),
 			array( $this, 'render_starting_value_field' ),
 			self::PAGE_SLUG,
 			'wcp_main_section'
@@ -96,7 +124,7 @@ class WCP_Admin {
 
 		add_settings_field(
 			'wcp_color',
-			__( 'Accent colour', 'wp-counter-plugin' ),
+			__( 'Accent Colour', 'wp-counter-plugin' ),
 			array( $this, 'render_color_field' ),
 			self::PAGE_SLUG,
 			'wcp_main_section'
@@ -104,7 +132,7 @@ class WCP_Admin {
 
 		add_settings_field(
 			'wcp_show_button',
-			__( 'Show the "+" button', 'wp-counter-plugin' ),
+			__( 'Show Button', 'wp-counter-plugin' ),
 			array( $this, 'render_button_field' ),
 			self::PAGE_SLUG,
 			'wcp_main_section'
@@ -112,184 +140,225 @@ class WCP_Admin {
 	}
 
 	/**
-	 * Validate and clean everything the admin submits.
+	 * Validate settings.
 	 *
-	 * Invalid values never silently disappear: an error message is attached to
-	 * the field and the previously saved value is kept instead.
-	 *
-	 * @param array $input Raw input from the form.
-	 * @return array<string, mixed>
+	 * @param mixed $input Raw form input.
+	 * @return array
 	 */
 	public function sanitize_settings( $input ) {
-		$input    = is_array( $input ) ? $input : array();
-		$existing = wcp_get_settings();
-		$output   = $existing;
 
-		// Title: plain text, never empty.
-		$title = isset( $input['title'] ) && is_string( $input['title'] )
+		$input = is_array( $input )
+			? $input
+			: array();
+
+		$old    = wcp_get_settings();
+		$output = $old;
+
+		/*
+		 * Title.
+		 */
+		$title = isset( $input['title'] )
 			? sanitize_text_field( $input['title'] )
 			: '';
-		if ( '' === $title ) {
-			add_settings_error(
-				'wcp_title',
-				'wcp_invalid_title',
-				__( 'The title cannot be empty, the previous title was kept.', 'wp-counter-plugin' ),
-				'error'
-			);
-		} else {
+
+		if ( '' !== $title ) {
 			$output['title'] = $title;
 		}
 
-		// Starting value: integer within a sane range.
+		/*
+		 * Starting value.
+		 */
 		if ( isset( $input['starting_value'] ) ) {
-			$starting_value = intval( $input['starting_value'] );
-			if ( $starting_value < -999999 || $starting_value > 999999 ) {
-				add_settings_error(
-					'wcp_starting_value',
-					'wcp_invalid_starting_value',
-					__( 'The starting value must be between -999999 and 999999.', 'wp-counter-plugin' ),
-					'error'
-				);
-			} else {
-				$output['starting_value'] = $starting_value;
+
+			$value = filter_var(
+				$input['starting_value'],
+				FILTER_VALIDATE_INT
+			);
+
+			if (
+				false !== $value &&
+				$value >= WCP_MIN_VALUE &&
+				$value <= WCP_MAX_VALUE
+			) {
+				$output['starting_value'] = $value;
 			}
 		}
 
-		// Step: a whole number of 1 or more. Zero/negative is rejected.
+		/*
+		 * Step.
+		 */
 		if ( isset( $input['step'] ) ) {
-			$step = intval( $input['step'] );
-			if ( $step < 1 ) {
-				add_settings_error(
-					'wcp_step',
-					'wcp_invalid_step',
-					__( 'The step must be a whole number of 1 or more. The previous step was kept.', 'wp-counter-plugin' ),
-					'error'
-				);
-			} else {
+
+			$step = filter_var(
+				$input['step'],
+				FILTER_VALIDATE_INT
+			);
+
+			if (
+				false !== $step &&
+				$step >= 1 &&
+				$step <= WCP_MAX_STEP
+			) {
 				$output['step'] = $step;
 			}
 		}
 
-		// Colour: valid hex colour only.
+		/*
+		 * Colour.
+		 */
 		if ( isset( $input['color'] ) ) {
-			$color = is_string( $input['color'] ) ? sanitize_hex_color( $input['color'] ) : null;
+
+			$color = sanitize_hex_color(
+				$input['color']
+			);
+
 			if ( $color ) {
 				$output['color'] = $color;
-			} else {
-				add_settings_error(
-					'wcp_color',
-					'wcp_invalid_color',
-					__( 'Please choose a valid colour.', 'wp-counter-plugin' ),
-					'error'
-				);
 			}
 		}
 
-		// Checkbox: absent means unchecked.
-		$output['show_button'] = ! empty( $input['show_button'] );
-
-		// A new starting value means a fresh counter: apply it right away.
-		if ( $output['starting_value'] !== $existing['starting_value'] ) {
-			wcp_set_counter_value( $output['starting_value'] );
-		}
+		/*
+		 * Checkbox.
+		 */
+		$output['show_button'] = ! empty(
+			$input['show_button']
+		);
 
 		return $output;
 	}
 
 	/**
-	 * Section intro text.
-	 *
-	 * @return void
-	 */
-	public function render_section() {
-		echo '<p>' . esc_html__( 'These settings control every [counter] shortcode that does not override them with an attribute.', 'wp-counter-plugin' ) . '</p>';
-	}
-
-	/**
-	 * Title field.
+	 * Title input.
 	 *
 	 * @return void
 	 */
 	public function render_title_field() {
+
 		$settings = wcp_get_settings();
+
 		printf(
-			'<input type="text" class="regular-text" id="wcp_title" name="%1$s[title]" value="%2$s" placeholder="%3$s" /> <p class="description">%4$s</p>',
+			'<input
+				type="text"
+				class="regular-text"
+				name="%1$s[title]"
+				value="%2$s"
+			/>',
 			esc_attr( WCP_SETTINGS_OPTION ),
-			esc_attr( $settings['title'] ),
-			esc_attr__( 'e.g. Visitor Counter', 'wp-counter-plugin' ),
-			esc_html__( 'Shown above the number on the frontend.', 'wp-counter-plugin' )
+			esc_attr( $settings['title'] )
 		);
 	}
 
 	/**
-	 * Starting value field.
+	 * Starting value input.
 	 *
 	 * @return void
 	 */
 	public function render_starting_value_field() {
+
 		$settings = wcp_get_settings();
+
 		printf(
-			'<input type="number" step="1" class="small-text" id="wcp_starting_value" name="%1$s[starting_value]" value="%2$d" /> <p class="description">%3$s</p>',
+			'<input
+				type="number"
+				name="%1$s[starting_value]"
+				value="%2$d"
+				min="%3$d"
+				max="%4$d"
+			/>',
 			esc_attr( WCP_SETTINGS_OPTION ),
 			intval( $settings['starting_value'] ),
-			esc_html__( 'Changing this resets the counter to the new value immediately.', 'wp-counter-plugin' )
+			WCP_MIN_VALUE,
+			WCP_MAX_VALUE
 		);
 	}
 
 	/**
-	 * Step field.
+	 * Step input.
 	 *
 	 * @return void
 	 */
 	public function render_step_field() {
+
 		$settings = wcp_get_settings();
+
 		printf(
-			'<input type="number" step="1" min="1" class="small-text" id="wcp_step" name="%1$s[step]" value="%2$d" /> <p class="description">%3$s</p>',
+			'<input
+				type="number"
+				name="%1$s[step]"
+				value="%2$d"
+				min="1"
+				max="%3$d"
+			/>',
 			esc_attr( WCP_SETTINGS_OPTION ),
 			intval( $settings['step'] ),
-			esc_html__( 'How much the counter increases on every click. Must be 1 or more.', 'wp-counter-plugin' )
+			WCP_MAX_STEP
 		);
 	}
 
 	/**
-	 * Colour picker field.
+	 * Colour input.
 	 *
 	 * @return void
 	 */
 	public function render_color_field() {
+
 		$settings = wcp_get_settings();
+
 		printf(
-			'<input type="text" class="wcp-color-picker" id="wcp_color" name="%1$s[color]" value="%2$s" data-default-color="%3$s" /> <p class="description">%4$s</p>',
+			'<input
+				type="text"
+				class="wcp-color-picker"
+				name="%1$s[color]"
+				value="%2$s"
+			/>',
 			esc_attr( WCP_SETTINGS_OPTION ),
-			esc_attr( $settings['color'] ),
-			esc_attr( wcp_get_default_settings()['color'] ),
-			esc_html__( 'Used for the button and the counter border.', 'wp-counter-plugin' )
+			esc_attr( $settings['color'] )
 		);
 	}
 
 	/**
-	 * Show/hide button checkbox.
+	 * Show button checkbox.
 	 *
 	 * @return void
 	 */
 	public function render_button_field() {
+
 		$settings = wcp_get_settings();
+
 		printf(
-			'<label for="wcp_show_button"><input type="checkbox" id="wcp_show_button" name="%1$s[show_button]" value="1" %2$s /> %3$s</label>',
+			'<label>
+				<input
+					type="checkbox"
+					name="%1$s[show_button]"
+					value="1"
+					%2$s
+				/>
+				%3$s
+			</label>',
 			esc_attr( WCP_SETTINGS_OPTION ),
-			checked( $settings['show_button'], true, false ),
-			esc_html__( 'Visitors can click "+" to increase the counter.', 'wp-counter-plugin' )
+			checked(
+				$settings['show_button'],
+				true,
+				false
+			),
+			esc_html__(
+				'Show the + button',
+				'wp-counter-plugin'
+			)
 		);
 	}
 
 	/**
-	 * Enqueue the colour picker and the small admin script on our page only.
+	 * Load admin assets.
 	 *
-	 * @param string $hook_suffix Current admin page hook.
+	 * @param string $hook Current admin page.
 	 * @return void
 	 */
-	public function enqueue_assets( $hook_suffix ) {
-		if ( 'settings_page_' . self::PAGE_SLUG !== $hook_suffix ) {
+	public function enqueue_assets( $hook ) {
+
+		if (
+			'settings_page_' . self::PAGE_SLUG !== $hook
+		) {
 			return;
 		}
 
@@ -305,155 +374,348 @@ class WCP_Admin {
 	}
 
 	/**
-	 * Render the settings screen.
+	 * Render admin page.
 	 *
 	 * @return void
 	 */
 	public function render_page() {
+
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You are not allowed to access this page.', 'wp-counter-plugin' ) );
+			return;
 		}
 
-		$settings      = wcp_get_settings();
-		$current_value = wcp_get_counter_value();
-		$example       = sprintf(
-			'[counter title="%1$s" step="%2$d" color="%3$s"]',
-			$settings['title'],
-			$settings['step'],
-			$settings['color']
-		);
+		$settings  = wcp_get_settings();
+		$named_ids = wcp_get_counter_ids();
+
 		?>
+
 		<div class="wrap">
-			<h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
+
+			<h1>
+				<?php
+				echo esc_html(
+					get_admin_page_title()
+				);
+				?>
+			</h1>
 
 			<?php settings_errors(); ?>
 
-			<form method="post" action="<?php echo esc_url( admin_url( 'options.php' ) ); ?>">
+			<form
+				method="post"
+				action="options.php"
+			>
+
 				<?php
-				settings_fields( self::OPTION_GROUP );
-				do_settings_sections( self::PAGE_SLUG );
+				settings_fields(
+					self::OPTION_GROUP
+				);
+
+				do_settings_sections(
+					self::PAGE_SLUG
+				);
+
 				submit_button();
 				?>
+
 			</form>
 
-			<h2><?php esc_html_e( 'Current counter value', 'wp-counter-plugin' ); ?></h2>
+			<hr>
+
+			<h2>
+				<?php
+					esc_html_e(
+						'Counters',
+						'wp-counter-plugin'
+					);
+				?>
+			</h2>
+
+			<table
+				class="widefat striped"
+				style="max-width:700px"
+			>
+
+				<thead>
+					<tr>
+						<th>Shortcode</th>
+						<th>Value</th>
+						<th>Action</th>
+					</tr>
+				</thead>
+
+				<tbody>
+
+					<?php
+					$this->render_counter_row(
+						''
+					);
+					?>
+
+					<?php foreach ( $named_ids as $id ) : ?>
+
+						<?php
+						$this->render_counter_row(
+							$id
+						);
+						?>
+
+					<?php endforeach; ?>
+
+				</tbody>
+
+			</table>
+
 			<p>
-				<strong><?php echo esc_html( number_format_i18n( $current_value ) ); ?></strong>
-				&mdash;
-				<?php esc_html_e( 'the number visitors see on the frontend.', 'wp-counter-plugin' ); ?>
+
+				<form
+					method="post"
+					action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
+				>
+
+					<input
+						type="hidden"
+						name="action"
+						value="wcp_reset_all"
+					/>
+
+					<?php
+					wp_nonce_field(
+						'wcp_reset_all'
+					);
+					?>
+
+					<?php
+					submit_button(
+						__(
+							'Reset All Counters',
+							'wp-counter-plugin'
+						),
+						'secondary',
+						'submit',
+						false
+					);
+					?>
+
+				</form>
+
 			</p>
 
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-				<input type="hidden" name="action" value="wcp_reset_counter" />
-				<?php wp_nonce_field( 'wcp_reset_counter' ); ?>
-				<?php submit_button( __( 'Reset counter to starting value', 'wp-counter-plugin' ), 'secondary', 'submit', false ); ?>
-			</form>
+			<hr>
 
-			<h2><?php esc_html_e( 'Use the shortcode', 'wp-counter-plugin' ); ?></h2>
-			<p><?php esc_html_e( 'Paste this into any post, page or text widget:', 'wp-counter-plugin' ); ?></p>
+			<h2>
+				<?php
+					esc_html_e(
+						'Shortcode',
+						'wp-counter-plugin'
+					);
+				?>
+			</h2>
 
 			<p>
+
 				<input
 					type="text"
 					id="wcp-shortcode-text"
 					class="regular-text code"
-					readonly="readonly"
 					value="[counter]"
+					readonly
 				/>
+
 				<button
 					type="button"
-					class="button"
 					id="wcp-copy-shortcode"
-					data-copied-label="<?php esc_attr_e( 'Copied!', 'wp-counter-plugin' ); ?>"
+					class="button"
+					data-copied-label="<?php
+						esc_attr_e(
+							'Copied!',
+							'wp-counter-plugin'
+						);
+					?>"
 				>
-					<?php esc_html_e( 'Copy shortcode', 'wp-counter-plugin' ); ?>
+					<?php
+						esc_html_e(
+							'Copy Shortcode',
+							'wp-counter-plugin'
+						);
+					?>
 				</button>
+
 			</p>
 
-			<p><?php esc_html_e( 'Optional attributes override the settings above:', 'wp-counter-plugin' ); ?></p>
-			<p><code><?php echo esc_html( $example ); ?></code></p>
+			<p>
+				<code>
+					[counter id="likes" title="Likes" step="1" color="#2563eb"]
+				</code>
+			</p>
 
-			<table class="widefat striped" style="max-width:760px">
-				<thead>
-					<tr>
-						<th><?php esc_html_e( 'Attribute', 'wp-counter-plugin' ); ?></th>
-						<th><?php esc_html_e( 'Description', 'wp-counter-plugin' ); ?></th>
-					</tr>
-				</thead>
-				<tbody>
-					<tr>
-						<td><code>title</code></td>
-						<td><?php esc_html_e( 'Heading shown above the number. Defaults to the settings title.', 'wp-counter-plugin' ); ?></td>
-					</tr>
-					<tr>
-						<td><code>step</code></td>
-						<td><?php esc_html_e( 'Amount added on each click. Defaults to the settings step.', 'wp-counter-plugin' ); ?></td>
-					</tr>
-					<tr>
-						<td><code>color</code></td>
-						<td><?php esc_html_e( 'Accent colour, e.g. #16a34a. Defaults to the settings colour.', 'wp-counter-plugin' ); ?></td>
-					</tr>
-					<tr>
-						<td><code>button</code></td>
-						<td><?php esc_html_e( 'Show or hide the "+" button: [counter button="no"].', 'wp-counter-plugin' ); ?></td>
-					</tr>
-				</tbody>
-			</table>
-
-			<h2><?php esc_html_e( 'How it works', 'wp-counter-plugin' ); ?></h2>
-			<ol>
-				<li><?php esc_html_e( 'Set the title, starting value, step and colour above, then press Save Changes.', 'wp-counter-plugin' ); ?></li>
-				<li><?php esc_html_e( 'Add [counter] to any post or page.', 'wp-counter-plugin' ); ?></li>
-				<li><?php esc_html_e( 'Visitors press "+" and the value increases by the step without reloading the page.', 'wp-counter-plugin' ); ?></li>
-				<li><?php esc_html_e( 'Use the reset button above to go back to the starting value at any time.', 'wp-counter-plugin' ); ?></li>
-			</ol>
 		</div>
+
 		<?php
 	}
 
 	/**
-	 * Reset the counter to the starting value (nonce + capability checked).
+	 * Render one counter table row.
 	 *
+	 * @param string $id Counter ID.
 	 * @return void
 	 */
-	public function handle_reset() {
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You are not allowed to reset the counter.', 'wp-counter-plugin' ), '', 403 );
-		}
+	private function render_counter_row( $id ) {
 
-		check_admin_referer( 'wcp_reset_counter' );
+		$id    = wcp_sanitize_counter_id( $id );
+		$value = wcp_get_counter_value( $id );
 
-		wcp_set_counter_value( wcp_get_settings()['starting_value'] );
+		$shortcode = '' === $id
+			? '[counter]'
+			: '[counter id="' . $id . '"]';
 
-		wp_safe_redirect(
-			add_query_arg(
-				array(
-					'page'      => self::PAGE_SLUG,
-					'wcp-reset' => '1',
-				),
-				admin_url( 'options-general.php' )
-			)
-		);
-		exit;
+		?>
+
+		<tr>
+
+			<td>
+				<code>
+					<?php echo esc_html( $shortcode ); ?>
+				</code>
+			</td>
+
+			<td>
+				<?php
+				echo esc_html(
+					number_format_i18n(
+						$value
+					)
+				);
+				?>
+			</td>
+
+			<td>
+
+				<form
+					method="post"
+					action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
+				>
+
+					<input
+						type="hidden"
+						name="action"
+						value="wcp_reset_single"
+					/>
+
+					<input
+						type="hidden"
+						name="counter_id"
+						value="<?php echo esc_attr( $id ); ?>"
+					/>
+
+					<?php
+					wp_nonce_field(
+						'wcp_reset_single_' . $id
+					);
+					?>
+
+					<button
+						type="submit"
+						class="button button-small"
+					>
+						<?php
+							esc_html_e(
+								'Reset',
+								'wp-counter-plugin'
+							);
+						?>
+					</button>
+
+				</form>
+
+			</td>
+
+		</tr>
+
+		<?php
 	}
 
 	/**
-	 * Confirmation notice after a reset.
+	 * Reset all counters.
 	 *
 	 * @return void
 	 */
-	public function render_reset_notice() {
-		if ( ! isset( $_GET['page'] ) || self::PAGE_SLUG !== sanitize_key( wp_unslash( $_GET['page'] ) ) ) {
-			return;
+	public function reset_all() {
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die(
+				esc_html__(
+					'Permission denied.',
+					'wp-counter-plugin'
+				)
+			);
 		}
 
-		if ( ! isset( $_GET['wcp-reset'] ) || ! current_user_can( 'manage_options' ) ) {
-			return;
-		}
-
-		printf(
-			'<div class="notice notice-success is-dismissible"><p>%s</p></div>',
-			esc_html__( 'Counter reset to the starting value.', 'wp-counter-plugin' )
+		check_admin_referer(
+			'wcp_reset_all'
 		);
+
+		wcp_reset_all_counters();
+
+		$this->redirect_back();
+	}
+
+	/**
+	 * Reset one counter.
+	 *
+	 * @return void
+	 */
+	public function reset_single() {
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die(
+				esc_html__(
+					'Permission denied.',
+					'wp-counter-plugin'
+				)
+			);
+		}
+
+		$id = isset( $_POST['counter_id'] )
+			? wcp_sanitize_counter_id(
+				wp_unslash(
+					$_POST['counter_id']
+				)
+			)
+			: '';
+
+		check_admin_referer(
+			'wcp_reset_single_' . $id
+		);
+
+		if ( wcp_counter_exists( $id ) ) {
+
+			wcp_set_counter_value(
+				wcp_get_settings()['starting_value'],
+				$id
+			);
+		}
+
+		$this->redirect_back();
+	}
+
+	/**
+	 * Return to settings page.
+	 *
+	 * @return void
+	 */
+	private function redirect_back() {
+
+		wp_safe_redirect(
+			add_query_arg(
+				'page',
+				self::PAGE_SLUG,
+				admin_url(
+					'options-general.php'
+				)
+			)
+		);
+
+		exit;
 	}
 }
